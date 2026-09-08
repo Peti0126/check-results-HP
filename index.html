@@ -2,7 +2,7 @@
 <html lang="hu">
 <head>
   <meta charset="UTF-8">
-  <title>Mérési Jegyzőkönyv Validátor & Korrektor</title>
+  <title>HP Mérési Jegyzőkönyv Validátor & Korrektor</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -58,19 +58,6 @@
     }
     input[type="file"] {
       display: none;
-    }
-    .expired-card {
-      background: #fff5f5;
-      border-left: 5px solid #e53e3e;
-      padding: 25px;
-      border-radius: 8px;
-      margin-bottom: 25px;
-      color: #9b2c2c;
-    }
-    .expired-card h2 {
-      margin-top: 0;
-      color: #c53030;
-      font-size: 20px;
     }
     .report-card {
       background: #fffaf0;
@@ -177,7 +164,7 @@
 
 <div class="container">
   <div class="header-box">
-    <h1>Jegyzőkönyv Validátor & Korrektor</h1>
+    <h1>HP Jegyzőkönyv Validátor & Korrektor</h1>
     <div class="author-badge">
       Fejlesztő & Szellemi Tulajdonos: Horváth Péter © 2026. Minden jog fenntartva.
     </div>
@@ -199,22 +186,6 @@
 </div>
 
 <script>
-  // 2 hónapos limitáció (Lejárat: 2026. november 8.)
-  const EXPIRATION_DATE = new Date("2026-11-08T23:59:59");
-  const now = new Date();
-
-  if (now > EXPIRATION_DATE) {
-    const appBody = document.getElementById('appBody');
-    appBody.innerHTML = `
-      <div class="expired-card">
-        <h2>⚠️ A tesztidőszak lejárt</h2>
-        <p>A szoftver 2 hónapos tesztidőszaka lezárult.</p>
-        <p style="margin-bottom:0;">Fejlesztő & Szellemi Tulajdonos: Horváth Péter © 2026. Minden jog fenntartva.</p>
-      </div>
-    `;
-    throw new Error("A tesztidőszak véget ért.");
-  }
-
   let filesData = [];
 
   const uploadZone = document.getElementById('uploadZone');

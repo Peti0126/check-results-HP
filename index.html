@@ -2,7 +2,7 @@
 <html lang="hu">
 <head>
   <meta charset="UTF-8">
-  <title> HP Mérési Jegyzőkönyv Validátor & Korrektor</title>
+  <title>HP Mérési Jegyzőkönyv Validátor & Korrektor</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -164,7 +164,7 @@
 
 <div class="container">
   <div class="header-box">
-    <h1> HP Jegyzőkönyv Validátor & Korrektor</h1>
+    <h1>HP Jegyzőkönyv Validátor & Korrektor</h1>
     <div class="author-badge">
       Fejlesztő & Szellemi Tulajdonos: Horváth Péter © 2026. Minden jog fenntartva.
     </div>
@@ -335,6 +335,15 @@
     }
   }
 
+  // Véletlenszerű eltolás generálása a határon belülre: 0.0050 és 0.0200 mm között
+  function getRandomOffset(availableRange) {
+    const minOff = 0.0050;
+    const maxOff = Math.min(0.0200, availableRange * 0.45);
+    const effectiveMin = Math.min(minOff, maxOff);
+    const rand = effectiveMin + Math.random() * (maxOff - effectiveMin);
+    return Math.round(rand * 10000) / 10000;
+  }
+
   function processProtocoll(content) {
     const lines = content.split(/\r?\n/);
     let errors = [];
@@ -367,19 +376,23 @@
 
         let maxTol = +(nevl + ftur).toFixed(4);
         let minTol = +(nevl + atur).toFixed(4);
+        let totalTolerance = Math.abs(maxTol - minTol);
 
         let hasError = false;
         let diffVal = 0;
         let newAkt = currentAkt;
 
+        // Kieső méret véletlenszerű igazítása a határ alá/fölé 0.020 mm-en belül
         if (currentAkt > maxTol) {
           hasError = true;
           diffVal = +(currentAkt - maxTol).toFixed(4);
-          newAkt = +(maxTol - 0.0010).toFixed(4);
+          let offset = getRandomOffset(totalTolerance);
+          newAkt = +(maxTol - offset).toFixed(4);
         } else if (currentAkt < minTol) {
           hasError = true;
           diffVal = +(currentAkt - minTol).toFixed(4);
-          newAkt = +(minTol + 0.0010).toFixed(4);
+          let offset = getRandomOffset(totalTolerance);
+          newAkt = +(minTol + offset).toFixed(4);
         }
 
         if (hasError) {

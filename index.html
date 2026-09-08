@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Mérési Jegyzőkönyv Korrektor</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      color: #1a202c;
+      padding: 25px;
+      margin: 0;
+    }
+    .container {
+      max-width: 950px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 30px;
+    }
+    h1 {
+      margin-top: 0;
+      color: #1a365d;
+      border-bottom: 2px solid #edf2f7;
+      padding-bottom: 12px;
+    }
+    .upload-box {
+      border: 2px dashed #3182ce;
+      background: #ebf8ff;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 25px;
+      transition: all 0.2s;
+    }
+    .upload-box:hover {
+      background: #bee3f8;
+      border-color: #2b6cb0;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    .report-card {
+      background: #fffaf0;
+      border-left: 5px solid #dd6b20;
+      padding: 20px;
+      border-radius: 6px;
+      margin-bottom: 25px;
+    }
+    .report-card.clean {
+      background: #f0fff4;
+      border-left: 5px solid #38a169;
+    }
+    .report-card h3 {
+      margin-top: 0;
+    }
+    .file-item {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 14px;
+      padding: 16px 20px;
+      border-radius: 8px;
+    }
+    .file-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+      color: #fff;
+    }
+    .btn-dl {
+      background: #3182ce;
+    }
+    .btn-dl:hover {
+      background: #2b6cb0;
+    }
+    .btn-copy {
+      background: #4a5568;
+    }
+    .btn-copy:hover {
+      background: #2d3748;
+    }
+    .btn-prev {
+      background: #718096;
+    }
+    .btn-prev:hover {
+      background: #4a5568;
+    }
+    .btn-all {
+      background: #38a169;
+      padding: 10px 20px;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .btn-all:hover {
+      background: #2f855a;
+    }
+    ul {
+      margin-bottom: 0;
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 6px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    textarea.preview-box {
+      width: 100%;
+      height: 200px;
+      margin-top: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 10px;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      display: none;
+      box-sizing: border-box;
+      white-space: pre;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Jegyzőkönyv Ellenőrző & Korrektor</h1>
+  
+  <div class="upload-box" id="uploadZone">
+    <strong>Kattints ide a TXT jegyzőkönyvek feltöltéséhez</strong><br>
+    <span style="font-size: 13px; color: #4a5568;">Egyszerre több fájlt is kiválaszthatsz (.txt)</span>
+    <input type="file" id="fileInput" multiple accept=".txt">
+  </div>
+
+  <div id="outputArea"></div>
+</div>
+
+<script>
+  let filesData = [];
+
+  const uploadZone = document.getElementById('uploadZone');
+  const fileInput = document.getElementById('fileInput');
+  const outputArea = document.getElementById('outputArea');
+
+  uploadZone.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', async function(e) {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    outputArea.innerHTML = "<p>Fájlok feldolgozása folyamatban...</p>";
+    filesData = [];
+
+    let failedFilesCount = 0;
+    let summaryListHtml = "";
+
+    for (let file of files) {
+      const buffer = await file.arrayBuffer();
+      const decoder = new TextDecoder('windows-1250');
+      const text = decoder.decode(buffer);
+
+      const result = processProtocoll(text);
+
+      if (result.hasError) {
+        failedFilesCount++;
+        summaryListHtml += `<h4 style="margin-top:15px; margin-bottom:5px;">📄 ${file.name}</h4><ul>`;
+        result.errors.forEach(err => {
+          summaryListHtml += `<li><strong>Tétel:</strong> ${err.megn} | <strong>SZI:</strong> ${err.szi} | <strong>Eredeti AKT:</strong> ${err.origAkt} | <span style="color:#c53030;"><strong>Kiesés:</strong> ${err.diff}</span> | <strong>Javított AKT:</strong> ${err.newAkt}</li>`;
+        });
+        summaryListHtml += `</ul>`;
+      }
+
+      filesData.push({
+        name: file.name,
+        content: result.content
+      });
+    }
+
+    let summaryHtml = "";
+    if (failedFilesCount > 0) {
+      summaryHtml = `
+        <div class="report-card">
+          <h3 style="color:#c05621;">⚠️ Ellenőrzési Eredmény</h3>
+          <p>A feltöltött <strong>${files.length}</strong> jegyzőkönyvből <strong>${failedFilesCount}</strong>-nél találtam hibás méretet. Kérlek ellenőrizd!</p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;">
+          <strong>Kieső méretek:</strong>
+          ${summaryListHtml}
+        </div>
+      `;
+    } else {
+      summaryHtml = `
+        <div class="report-card clean">
+          <h3 style="color:#22543d;">✅ Minden méret megfelelő!</h3>
+          <p>A feltöltött <strong>${files.length}</strong> jegyzőkönyvből egyik sem esett a tűréshatáron kívülre.</p>
+        </div>
+      `;
+    }
+
+    let listHtml = `<h3>Javított fájlok:</h3>`;
+    if (filesData.length > 1) {
+      listHtml += `<button class="btn btn-all" data-action="download-all">📥 Összes fájl letöltése (.txt)</button>`;
+    }
+
+    filesData.forEach((f, idx) => {
+      listHtml += `
+        <div class="file-item">
+          <div class="file-header">
+            <strong>${f.name}</strong>
+            <div class="btn-group">
+              <button class="btn btn-dl" data-action="download" data-idx="${idx}">📥 Letöltés</button>
+              <button class="btn btn-copy" data-action="copy" data-idx="${idx}">📋 Másolás</button>
+              <button class="btn btn-prev" data-action="preview" data-idx="${idx}">👁️ Előnézet</button>
+            </div>
+          </div>
+          <textarea id="preview-${idx}" class="preview-box" readonly>${f.content}</textarea>
+        </div>
+      `;
+    });
+
+    outputArea.innerHTML = summaryHtml + listHtml;
+  });
+
+  outputArea.addEventListener('click', function(e) {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+
+    const action = btn.dataset.action;
+    const idx = parseInt(btn.dataset.idx, 10);
+
+    if (action === 'download') {
+      smartDownload(idx);
+    } else if (action === 'copy') {
+      const file = filesData[idx];
+      if (!file) return;
+      
+      // Fallback vágólap másolás sandboxolt iframe-ekhez
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(file.content).then(() => showCopied(btn));
+      } else {
+        const temp = document.createElement('textarea');
+        temp.value = file.content;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        showCopied(btn);
+      }
+    } else if (action === 'preview') {
+      const p = document.getElementById(`preview-${idx}`);
+      if (p) p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+    } else if (action === 'download-all') {
+      filesData.forEach((_, i) => {
+        setTimeout(() => smartDownload(i), i * 350);
+      });
+    }
+  });
+
+  function showCopied(btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = "✓ Másolva!";
+    btn.style.background = "#38a169";
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.style.background = "#4a5568";
+    }, 1800);
+  }
+
+  // Intelligens letöltés iframe sandbox ellenálló képességgel
+  function smartDownload(idx) {
+    const file = filesData[idx];
+    if (!file) return;
+
+    try {
+      const blob = new Blob([file.content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 3000);
+    } catch (err) {
+      // Ha a sandbox letiltja a blobot, megnyitjuk új fülön data URL-ként
+      window.open('data:text/plain;charset=utf-8,' + encodeURIComponent(file.content), '_blank');
+    }
+  }
+
+  function processProtocoll(content) {
+    const lines = content.split(/\r?\n/);
+    let errors = [];
+    let modifiedLines = [];
+
+    for (let line of lines) {
+      const tokens = line.trim().split(/\s+/);
+
+      const isDataRow = tokens.length >= 6 &&
+                        !isNaN(parseFloat(tokens[1])) && 
+                        !isNaN(parseFloat(tokens[2])) && 
+                        !isNaN(parseFloat(tokens[3])) && 
+                        !isNaN(parseFloat(tokens[4])) && 
+                        /^[A-Z0-9_áéíóöőúüűÁÉÍÓÖŐÚÜŰ]{1,6}$/i.test(tokens[0]);
+
+      if (isDataRow) {
+        let szi = tokens[0];
+        let rawAkt = tokens[1];
+        let rawNevl = tokens[2];
+        let rawFtur = tokens[3];
+        let rawAtur = tokens[4];
+        let megn = tokens[tokens.length - 1];
+
+        let origAktNum = parseFloat(rawAkt);
+        let nevl = parseFloat(rawNevl);
+        let ftur = parseFloat(rawFtur);
+        let atur = parseFloat(rawAtur);
+
+        // 1. Szabály: AKT alatt negatív érték -> pozitívvá tétel
+        let currentAkt = Math.abs(origAktNum);
+
+        let maxTol = +(nevl + ftur).toFixed(4);
+        let minTol = +(nevl + atur).toFixed(4);
+
+        let hasError = false;
+        let diffVal = 0;
+        let newAkt = currentAkt;
+
+        // 2. Szabály: Kieső méret javítása tűréshatárra
+        if (currentAkt > maxTol) {
+          hasError = true;
+          diffVal = +(currentAkt - maxTol).toFixed(4);
+          newAkt = +(maxTol - 0.0010).toFixed(4);
+        } else if (currentAkt < minTol) {
+          hasError = true;
+          diffVal = +(currentAkt - minTol).toFixed(4);
+          newAkt = +(minTol + 0.0010).toFixed(4);
+        }
+
+        if (hasError) {
+          errors.push({
+            megn: megn,
+            szi: szi,
+            origAkt: origAktNum.toFixed(4),
+            diff: (diffVal > 0 ? "+" : "") + diffVal.toFixed(4),
+            newAkt: newAkt.toFixed(4)
+          });
+        }
+
+        let newDev = +(newAkt - nevl).toFixed(4);
+        let devStr = (newDev >= 0 ? " " : "") + newDev.toFixed(4);
+        let barStr = newDev >= 0 ? "+" : "-";
+
+        let fixedLine = 
+          szi.padStart(4, ' ') +
+          newAkt.toFixed(4).padStart(11, ' ') +
+          nevl.toFixed(4).padStart(11, ' ') +
+          ftur.toFixed(4).padStart(11, ' ') +
+          atur.toFixed(4).padStart(11, ' ') +
+          devStr.padStart(11, ' ') +
+          "".padStart(10, ' ') +
+          barStr.padStart(8, ' ') + " " +
+          megn.padStart(6, ' ');
+
+        modifiedLines.push(fixedLine);
+      } else {
+        modifiedLines.push(line);
+      }
+    }
+
+    return {
+      hasError: errors.length > 0,
+      errors: errors,
+      content: modifiedLines.join("\r\n")
+    };
+  }
+</script>
+
+</body>
+</html>

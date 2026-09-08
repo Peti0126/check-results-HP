@@ -2,7 +2,7 @@
 <html lang="hu">
 <head>
   <meta charset="UTF-8">
-  <title>Mérési Jegyzőkönyv Korrektor</title>
+  <title>Mérési Jegyzőkönyv Validátor & Korrektor</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -17,13 +17,30 @@
       background: #ffffff;
       border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-      padding: 30px;
+      padding: 35px;
+    }
+    .header-box {
+      border-bottom: 2px solid #edf2f7;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
     }
     h1 {
-      margin-top: 0;
+      margin: 0;
       color: #1a365d;
-      border-bottom: 2px solid #edf2f7;
-      padding-bottom: 12px;
+      font-size: 22px;
+    }
+    .author-badge {
+      font-size: 12px;
+      color: #4a5568;
+      background: #edf2f7;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-weight: 500;
     }
     .upload-box {
       border: 2px dashed #3182ce;
@@ -41,6 +58,19 @@
     }
     input[type="file"] {
       display: none;
+    }
+    .expired-card {
+      background: #fff5f5;
+      border-left: 5px solid #e53e3e;
+      padding: 25px;
+      border-radius: 8px;
+      margin-bottom: 25px;
+      color: #9b2c2c;
+    }
+    .expired-card h2 {
+      margin-top: 0;
+      color: #c53030;
+      font-size: 20px;
     }
     .report-card {
       background: #fffaf0;
@@ -133,23 +163,58 @@
       white-space: pre;
       background: #fff;
     }
+    footer {
+      margin-top: 35px;
+      padding-top: 18px;
+      border-top: 1px solid #edf2f7;
+      text-align: center;
+      font-size: 12px;
+      color: #718096;
+    }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h1>Jegyzőkönyv Ellenőrző & Korrektor</h1>
+  <div class="header-box">
+    <h1>Jegyzőkönyv Validátor & Korrektor</h1>
+    <div class="author-badge">
+      Fejlesztő & Szellemi Tulajdonos: Horváth Péter © 2026. Minden jog fenntartva.
+    </div>
+  </div>
   
-  <div class="upload-box" id="uploadZone">
-    <strong>Kattints ide a TXT jegyzőkönyvek feltöltéséhez</strong><br>
-    <span style="font-size: 13px; color: #4a5568;">Egyszerre több fájlt is kiválaszthatsz (.txt)</span>
-    <input type="file" id="fileInput" multiple accept=".txt">
+  <div id="appBody">
+    <div class="upload-box" id="uploadZone">
+      <strong>Kattints ide a TXT jegyzőkönyvek feltöltéséhez</strong><br>
+      <span style="font-size: 13px; color: #4a5568;">Több fájl egyidejű ellenőrzése (.txt)</span>
+      <input type="file" id="fileInput" multiple accept=".txt">
+    </div>
+
+    <div id="outputArea"></div>
   </div>
 
-  <div id="outputArea"></div>
+  <footer>
+    Fejlesztő & Szellemi Tulajdonos: Horváth Péter © 2026. Minden jog fenntartva.
+  </footer>
 </div>
 
 <script>
+  // 2 hónapos limitáció (Lejárat: 2026. november 8.)
+  const EXPIRATION_DATE = new Date("2026-11-08T23:59:59");
+  const now = new Date();
+
+  if (now > EXPIRATION_DATE) {
+    const appBody = document.getElementById('appBody');
+    appBody.innerHTML = `
+      <div class="expired-card">
+        <h2>⚠️ A tesztidőszak lejárt</h2>
+        <p>A szoftver 2 hónapos tesztidőszaka lezárult.</p>
+        <p style="margin-bottom:0;">Fejlesztő & Szellemi Tulajdonos: Horváth Péter © 2026. Minden jog fenntartva.</p>
+      </div>
+    `;
+    throw new Error("A tesztidőszak véget ért.");
+  }
+
   let filesData = [];
 
   const uploadZone = document.getElementById('uploadZone');
@@ -247,7 +312,6 @@
       const file = filesData[idx];
       if (!file) return;
       
-      // Fallback vágólap másolás sandboxolt iframe-ekhez
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(file.content).then(() => showCopied(btn));
       } else {
@@ -279,7 +343,6 @@
     }, 1800);
   }
 
-  // Intelligens letöltés iframe sandbox ellenálló képességgel
   function smartDownload(idx) {
     const file = filesData[idx];
     if (!file) return;
@@ -297,7 +360,6 @@
         URL.revokeObjectURL(url);
       }, 3000);
     } catch (err) {
-      // Ha a sandbox letiltja a blobot, megnyitjuk új fülön data URL-ként
       window.open('data:text/plain;charset=utf-8,' + encodeURIComponent(file.content), '_blank');
     }
   }
@@ -330,7 +392,6 @@
         let ftur = parseFloat(rawFtur);
         let atur = parseFloat(rawAtur);
 
-        // 1. Szabály: AKT alatt negatív érték -> pozitívvá tétel
         let currentAkt = Math.abs(origAktNum);
 
         let maxTol = +(nevl + ftur).toFixed(4);
@@ -340,7 +401,6 @@
         let diffVal = 0;
         let newAkt = currentAkt;
 
-        // 2. Szabály: Kieső méret javítása tűréshatárra
         if (currentAkt > maxTol) {
           hasError = true;
           diffVal = +(currentAkt - maxTol).toFixed(4);
